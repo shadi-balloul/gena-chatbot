@@ -1,0 +1,12 @@
+venv/
+venv*
+__pycache__/
+*.pyc
+*.log
+*.egg-info
+.idea/     # If you use IntelliJ IDEA/PyCharm
+.vscode/    # If you use VS Code
+data/conversations/ # Consider ignoring if pickle files are user-specific/temporary
+.python-version
+data/
+.env
