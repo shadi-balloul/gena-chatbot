@@ -1,35 +1,44 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.models import Conversation, Message
+from datetime import datetime
+from bson import ObjectId
+from app.models import Conversation, Message  # ✅ Ensure Message is imported
 from app.services.mongodb import MongoDBClient
 from app.services.chat_session_manager import ChatSessionManager, ChatSession
 from app.services.gemini_client import GeminiClient
-from datetime import datetime
-from bson import ObjectId
 
 router = APIRouter()
-
 db = MongoDBClient.get_database()
 
 @router.post("/conversations", response_model=Conversation)
 async def create_conversation(conversation: Conversation):
-    # Ensure the user does not have an active session.
+    # ✅ Check if the user already has an active session in RAM
     existing_session = ChatSessionManager.get_session(conversation.user_id)
+    
     if existing_session:
-        raise HTTPException(status_code=400, detail="Active chat session already exists for this user.")
+        # ✅ Retrieve the existing conversation from MongoDB
+        existing_conversation = await db.conversations.find_one({"_id": ObjectId(existing_session.conversation_id)})
+        if existing_conversation:
+            # Convert `_id` from ObjectId to string and remove `_id` to avoid validation issues
+            existing_conversation["id"] = str(existing_conversation["_id"])
+            del existing_conversation["_id"]
 
+            return Conversation(**existing_conversation)  
+
+    # ✅ If no active session, create a new conversation
     conversation.start_time = datetime.utcnow()
     conversation.last_message_time = conversation.start_time
-    # Insert the conversation into MongoDB and get its _id.
+    conversation.messages = []  # Ensure messages are initialized
+
+    # ✅ Insert the conversation into MongoDB
     result = await db.conversations.insert_one(conversation.dict(by_alias=True, exclude_none=True))
-    print(result)
-    print(result.inserted_id)
+    
+    # ✅ Convert ObjectId to string for JSON response
     conversation.id = str(result.inserted_id)
     
-    # Now create a chat session and pass the conversation id.
+    # ✅ Create a chat session in RAM
     ChatSessionManager.create_session(conversation.user_id, conversation.id)
     
     return conversation
-
 
 @router.post("/conversations/{conversation_id}/messages", response_model=Message)
 async def send_message(conversation_id: str, payload: dict):
@@ -130,3 +139,23 @@ async def get_conversation_token_stats(conversation_id: str, user_id: str = Quer
         "total_tokens": total_tokens,
         "message_count": message_count
     }
+    
+@router.post("/conversations0", response_model=Conversation)
+async def create_conversation(conversation: Conversation):
+    # Ensure the user does not have an active session.
+    existing_session = ChatSessionManager.get_session(conversation.user_id)
+    if existing_session:
+        raise HTTPException(status_code=400, detail="Active chat session already exists for this user.")
+
+    conversation.start_time = datetime.utcnow()
+    conversation.last_message_time = conversation.start_time
+    # Insert the conversation into MongoDB and get its _id.
+    result = await db.conversations.insert_one(conversation.dict(by_alias=True, exclude_none=True))
+    print(result)
+    print(result.inserted_id)
+    conversation.id = str(result.inserted_id)
+    
+    # Now create a chat session and pass the conversation id.
+    ChatSessionManager.create_session(conversation.user_id, conversation.id)
+    
+    return conversation
