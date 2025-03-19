@@ -1,0 +1,9 @@
+__pycache__/
+.vscode/
+.git/
+.env
+venv/
+node_modules/
+.python-version
+.vercel
+

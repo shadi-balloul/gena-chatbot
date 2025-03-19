@@ -18,6 +18,10 @@ app.include_router(conversation_routes.router, prefix="/api")
 app.include_router(context_cache_routes.router, prefix="/api") 
 app.include_router(chat_session_routes.router, prefix="/api")
 
+@app.get("/")
+async def health_check():
+    return "The health check is successful!"
+
 @app.on_event("startup")
 async def startup_event():
     # Initialize the Gemini cache from the PDF at server startup.
@@ -35,3 +39,8 @@ async def cleanup_chat_sessions():
 @app.get("/")
 def root():
     return {"message": "Welcome to BEMO Bank Chatbot API"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+

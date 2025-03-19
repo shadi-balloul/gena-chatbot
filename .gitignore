@@ -8,3 +8,4 @@ __pycache__/
 .vscode/    # If you use VS Code
 data/conversations/ # Consider ignoring if pickle files are user-specific/temporary
 .python-version
+.vercel
