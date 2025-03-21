@@ -1,3 +1,4 @@
+# /home/shadi2/bmo/code/gena-chatbot/gena-chatbot/app/services/gemini_client.py
 import asyncio
 import json
 import pathlib
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 from google import genai
 from google.genai import types
 from app.config import settings
-import PyPDF2  # Ensure PyPDF2 is in your requirements
+import PyPDF2
 
 CACHE_METADATA_FILE = "cache_metadata.json"
 
@@ -35,9 +36,11 @@ class GeminiClient:
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.cache = None
         self.initialized = True
+        # Use a single, multimodal model (e.g., gemini-1.5-pro)
+        self.model = self.client.models.get(model=settings.GEMINI_MODEL_NAME)
+
 
     async def initialize_cache(self):
-        # Step 1. Try to load existing cache metadata from file.
         cache_metadata = None
         if os.path.exists(CACHE_METADATA_FILE):
             try:
@@ -50,9 +53,7 @@ class GeminiClient:
         if cache_metadata:
             try:
                 expire_time = datetime.fromisoformat(cache_metadata["expire_time"])
-                # Check if the cached content is still valid.
                 if expire_time > now:
-                    # Retrieve cache object by name.
                     try:
                         cache_obj = self.client.caches.get(name=cache_metadata["name"])
                         print(f"Using existing cache: {cache_obj.name}")
@@ -65,7 +66,6 @@ class GeminiClient:
             except Exception as e:
                 print("Error processing cache metadata:", e)
 
-        # Step 2. No valid cache found; create a new cache.
         def load_pdf_text():
             pdf_path = pathlib.Path(settings.PDF_PATH)
             if not pdf_path.exists():
@@ -76,7 +76,7 @@ class GeminiClient:
 
         def create_cache():
             return self.client.caches.create(
-                model=settings.GEMINI_MODEL_NAME,
+                model=settings.GEMINI_MODEL_NAME,  # Use the multimodal model here
                 config=types.CreateCachedContentConfig(
                     display_name='BEMO Bank Information',
                     system_instruction=(
@@ -90,7 +90,6 @@ class GeminiClient:
         self.cache = await asyncio.to_thread(create_cache)
         print(f"Created new cache: {self.cache.name}")
 
-        # Step 3. Save cache metadata to file.
         metadata = {
             "name": self.cache.name,
             "model": self.cache.model,
@@ -108,38 +107,56 @@ class GeminiClient:
 
         return self.cache
 
-
-
     def create_chat(self):
+        """Creates a chat session using the single multimodal model."""
         if not self.cache:
-            raise ValueError("No cached content found. Ensure cache is initialized.")
+              raise ValueError("No cached content found. Ensure cache is initialized.")
 
         try:
+            #  Use cached content for the multimodal model
             return self.client.chats.create(
                 model=settings.GEMINI_MODEL_NAME,
                 config=types.GenerateContentConfig(
-                    cached_content=self.cache.name  # ✅ Use cached content at chat creation
+                    cached_content=self.cache.name
                 )
             )
+
         except Exception as e:
             print(f"Failed to create chat: {e}")
             return None
 
-    async def send_message(self, chat_session, message):
+    async def _send_any_message(self, chat_session, content_parts):
+        """Internal helper to send messages (handles both text and audio)."""
         if not chat_session.chat:
             raise ValueError("Chat session is not initialized properly.")
 
         def _send():
-            return chat_session.chat.send_message(message)
+            return chat_session.chat.send_message(content_parts)
 
         response = await asyncio.to_thread(_send)
 
-        # ✅ Extract token counts from `usage_metadata`
+        # Extract token counts from `usage_metadata`
         prompt_tokens = response.usage_metadata.prompt_token_count if hasattr(response.usage_metadata, "prompt_token_count") else 0
         response_tokens = response.usage_metadata.candidates_token_count if hasattr(response.usage_metadata, "candidates_token_count") else 0
         total_tokens = response.usage_metadata.total_token_count if hasattr(response.usage_metadata, "total_token_count") else prompt_tokens + response_tokens
 
         print(f"Token Usage - Prompt: {prompt_tokens}, Response: {response_tokens}, Total: {total_tokens}")
-
         return response, prompt_tokens, response_tokens, total_tokens
 
+
+    async def send_message(self, chat_session, message_text):
+        """Sends a text message."""
+        return await self._send_any_message(chat_session, [message_text])
+
+
+
+    async def send_audio_message(self, chat_session, audio_data: bytes, file_name: str):
+        """Sends an audio message directly (no transcription)."""
+        audio_part = {
+            "mime_type": "audio/wav",  # VERY IMPORTANT: Set the correct MIME type
+            "data": audio_data
+        }
+        # Include a text prompt along with the audio
+        text_part = f"Respond to the following audio message. file name is: {file_name}"
+
+        return await self._send_any_message(chat_session, [text_part, audio_part])

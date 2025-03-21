@@ -1,5 +1,6 @@
+# /home/shadi2/bmo/code/gena-chatbot/gena-chatbot/app/routes/context_cache_routes.py
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from typing import List
 from app.models import ContextCacheInfo
 from app.services.gemini_client import GeminiClient
@@ -25,17 +26,14 @@ async def get_context_cache_info():
 @router.get("/context-cache/list", response_model=List[ContextCacheInfo])
 async def list_context_caches():
     gemini_client = GeminiClient()
-    # Call the caches.list() method using the underlying client.
     def list_caches():
-        # List caches for the specified model. Adjust this if your API requires different parameters.
         return gemini_client.client.caches.list()
-    
+
     caches_list = await asyncio.to_thread(list_caches)
-    
+
     if not caches_list:
         raise HTTPException(status_code=404, detail="No cached contents found.")
-    
-    # Convert each cache object to our Pydantic model.
+
     result = []
     for cache in caches_list:
         result.append(
@@ -49,3 +47,21 @@ async def list_context_caches():
             )
         )
     return result
+
+
+@router.delete("/context-cache", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_caches():
+    """Deletes all Gemini caches."""
+    gemini_client = GeminiClient()
+
+    def _delete_all():
+        for cache in gemini_client.client.caches.list():
+            gemini_client.client.caches.delete(name=cache.name)
+
+    try:
+        await asyncio.to_thread(_delete_all)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting caches: {e}",
+        )

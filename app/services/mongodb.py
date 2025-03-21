@@ -1,3 +1,4 @@
+# /home/shadi2/bmo/code/gena-chatbot/gena-chatbot/app/services/mongodb.py
 import motor.motor_asyncio
 from app.config import settings
 
