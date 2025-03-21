@@ -7,6 +7,10 @@ class Message(BaseModel):
     content: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     token_count: Optional[int] = None
+    type: str = "text"           # "text" or "audio"
+    audio_file_path: Optional[str] = None
+    message_index: Optional[int] = None 
+    sent_message_index: Optional[int] = None 
 
 class Conversation(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
