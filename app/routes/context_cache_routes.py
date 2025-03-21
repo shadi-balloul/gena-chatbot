@@ -1,3 +1,4 @@
+import os
 import asyncio
 from fastapi import APIRouter, HTTPException
 from typing import List
@@ -49,3 +50,28 @@ async def list_context_caches():
             )
         )
     return result
+
+@router.delete("/context-cache")
+async def delete_all_caches():
+    gemini_client = GeminiClient()
+    
+    def list_and_delete():
+        # List all cached content metadata
+        caches_list = gemini_client.client.caches.list()
+        deleted_count = 0
+        for cache in caches_list:
+            try:
+                # Delete each cache using its name
+                gemini_client.client.caches.delete(name=cache.name)
+                deleted_count += 1
+            except Exception as e:
+                print(f"Error deleting cache {cache.name}: {e}")
+        return deleted_count
+
+    deleted_count = await asyncio.to_thread(list_and_delete)
+    
+    # Optionally remove local metadata file if it exists
+    # if os.path.exists(CACHE_METADATA_FILE):
+    #    os.remove(CACHE_METADATA_FILE)
+    
+    return {"message": f"Deleted {deleted_count} cache object(s)."}

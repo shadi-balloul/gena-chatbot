@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.routes import conversation_routes, context_cache_routes, chat_session_routes
 from app.services.gemini_client import GeminiClient
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 
 app = FastAPI(title="BEMO Bank Chatbot API")
 
@@ -25,7 +26,8 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     # Initialize the Gemini cache from the PDF at server startup.
-    gemini_client = GeminiClient()
+    # gemini_client = GeminiClient()
+    gemini_client = GeminiClient(file_ext=settings.CACHED_FILE_EXT)
     await gemini_client.initialize_cache()
     # Start a background task to periodically clean up expired chat sessions.
     asyncio.create_task(cleanup_chat_sessions())
