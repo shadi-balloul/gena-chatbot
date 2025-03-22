@@ -8,9 +8,12 @@ from app.services.chat_session_manager import ChatSessionManager, ChatSession
 from app.services.gemini_client import GeminiClient
 import os
 import time
+from fastapi.responses import FileResponse
 
 router = APIRouter()
 db = MongoDBClient.get_database()
+
+AUDIO_FILES_BASE_DIR = "audio_files"
 
 @router.post("/conversations", response_model=Conversation)
 async def create_conversation(conversation: Conversation):
@@ -209,7 +212,7 @@ async def upload_audio(
       1. Locates the message by conversation_id, user_id, and message_index.
       2. Saves the uploaded audio file on disk in a structured directory:
          audio_files/{user_id}/{conversation_id}/ with a filename generated using the UTC timestamp and the message index.
-      3. Updates the located message with the generated audio file path.
+      3. Updates the located message with the generated audio file path using an array filter.
       4. Returns the updated message.
     """
     # Retrieve the conversation from the database.
@@ -217,21 +220,25 @@ async def upload_audio(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
     
-    # Locate the message with the specified message_index and type "audio".
-    messages = conversation.get("messages", [])
+    print(f"conversation_id: {conversation_id}")
+    print(f"user_id: {user_id}")
+    print(f"message_index: {message_index}")
+    
+    # Verify that the target message exists.
     target_message = None
-    for msg in messages:
+    for msg in conversation.get("messages", []):
         if msg.get("message_index") == message_index and msg.get("type") == "audio":
             target_message = msg
             break
-    
     if not target_message:
         raise HTTPException(status_code=404, detail="Audio message with the provided index not found.")
     
     # Define the directory structure: audio_files/{user_id}/{conversation_id}/
-    base_dir = "audio_files"
+    base_dir = AUDIO_FILES_BASE_DIR
     dir_path = os.path.join(base_dir, user_id, conversation_id)
     os.makedirs(dir_path, exist_ok=True)
+    
+    print(f"dir_path: {dir_path}")
     
     # Generate a unique filename using the current UTC timestamp and the message index.
     ts_str = datetime.utcnow().strftime("%Y%m%d%H%M%S")
@@ -239,19 +246,18 @@ async def upload_audio(
     filename = f"{ts_str}_{message_index}{ext}"
     file_path = os.path.join(dir_path, filename)
     
+    print(f"file_path: {file_path}")
+    
     # Save the uploaded audio file to disk.
     with open(file_path, "wb") as f:
         content = await audio.read()
         f.write(content)
     
-    # Update the message in MongoDB to set the audio_file_path.
+    # Update the specific message in MongoDB using an array filter.
     update_result = await db.conversations.update_one(
-        {
-            "_id": ObjectId(conversation_id),
-            "messages.message_index": message_index,
-            "messages.type": "audio"
-        },
-        {"$set": {"messages.$.audio_file_path": file_path}}
+        {"_id": ObjectId(conversation_id)},
+        {"$set": {"messages.$[elem].audio_file_path": file_path}},
+        array_filters=[{"elem.message_index": message_index, "elem.type": "audio"}]
     )
     
     if update_result.modified_count == 0:
@@ -265,10 +271,13 @@ async def upload_audio(
         None
     )
     
+    print(f"updated_message: {updated_message}")
+    
     if not updated_message:
         raise HTTPException(status_code=500, detail="Audio message not found after update.")
     
     return Message(**updated_message)
+
 
 
 @router.get("/conversations/{conversation_id}/audio", response_model=List[Message])
@@ -284,3 +293,20 @@ async def get_audio_messages(conversation_id: str, user_id: str = Query(...)):
     # Filter messages of type "audio"
     audio_messages = [Message(**msg) for msg in conversation.get("messages", []) if msg.get("type") == "audio"]
     return audio_messages
+
+@router.get("/conversations/{conversation_id}/audio/{filename}")
+async def get_audio_file(conversation_id: str, filename: str, user_id: str = Query(...)):
+    """
+    Retrieve an audio file stored on the server.
+    
+    The file path is constructed using the format:
+      audio_files/{user_id}/{conversation_id}/{filename}
+    
+    Example file path:
+      audio_files/shadi/67dde86ea4f562f43ccb80d6/20250321223104_1.wav
+    """
+    file_path = os.path.join(AUDIO_FILES_BASE_DIR, user_id, conversation_id, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+    
+    return FileResponse(file_path, media_type="audio/wav", filename=filename)

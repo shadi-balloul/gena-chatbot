@@ -9,7 +9,7 @@ app = FastAPI(title="BEMO Bank Chatbot API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # ✅ Allow requests from Next.js frontend
+    allow_origins=["http://localhost:3000", "http://192.168.1.10:3000"],  # ✅ Allow requests from Next.js frontend
     allow_credentials=True,
     allow_methods=["*"],  # ✅ Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # ✅ Allow all headers
