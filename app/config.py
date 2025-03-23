@@ -6,6 +6,7 @@ load_dotenv()  # Load environment variables from .env
 class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL_NAME: str = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-002")
+    VOICE_TO_TEXT_MODEL: str = os.getenv("VOICE_TO_TEXT_MODEL", "gemini-2.0-flash-001")
     PDF_PATH: str = os.getenv("PDF_PATH")
     MD_PATH: str = os.getenv("MD_PATH")  # New: path to markdown file
     MONGODB_URI: str = os.getenv("MONGODB_URI")

@@ -9,10 +9,15 @@ app = FastAPI(title="BEMO Bank Chatbot API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://192.168.1.10:3000"],  # ✅ Allow requests from Next.js frontend
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "http://192.168.201.130:3000",
+        "https://192.168.201.130:3000"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # ✅ Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # ✅ Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(conversation_routes.router, prefix="/api")
@@ -44,5 +49,11 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        ssl_keyfile="key.pem",
+        ssl_certfile="cert.pem"
+    )
 

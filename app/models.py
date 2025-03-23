@@ -11,6 +11,7 @@ class Message(BaseModel):
     audio_file_path: Optional[str] = None
     message_index: Optional[int] = None 
     sent_message_index: Optional[int] = None 
+    sent_message: Optional[str] = None
 
 class Conversation(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")

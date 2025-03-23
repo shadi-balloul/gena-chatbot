@@ -11,3 +11,4 @@ data/conversations/ # Consider ignoring if pickle files are user-specific/tempor
 .vercel
 audio_files/*
 audio_files*
+*.pem
