@@ -189,53 +189,84 @@ async def create_conversation(conversation: Conversation):
     return model_message
 
 @router.post("/conversations/{conversation_id}/messages", response_model=Message)
-async def send_message(conversation_id: str, payload: dict):
+async def send_message(
+    conversation_id: str,
+    user_id: str = Form(...),
+    type: str = Form(...),            # "text" or "audio"
+    message: str = Form(""),            # For text messages; may be empty if audio.
+    audio: UploadFile = File(None)      # Provided only when type == "audio"
+):
     """
     Sends a user message to the chatbot.
-
-    Payload example:
-    {
-        "user_id": "shadi",
-        "message": "أريد أن أشتري رصيد...",
-        "type": "audio"   // or "text"
-    }
-
-    For an audio message, the message record is created with type "audio" and no audio_file_path.
-    The audio_file_path will be updated later by the audio upload API.
     
-    The API returns the model response along with an extra field 'sent_message_index'
-    which contains the message_index of the user-sent message.
+    For type "text":
+      - Uses the provided message.
+      
+    For type "audio":
+      - Uses the provided audio file, sends it to the voice-to-text model (VOICE_TO_TEXT_MODEL),
+        and uses the extracted text as the message content.
+      - The audio file is stored on disk under audio_files/{user_id}/{conversation_id}/,
+        with a filename based on the UTC timestamp and message index.
+      - The message record is updated with the generated audio_file_path.
+    
+    Returns the model's response (always text) along with:
+      - 'sent_message_index': The index of the user-sent message.
+      - 'sent_message': The text that was sent by the user (either entered directly or extracted from audio).
     """
-    user_id = payload.get("user_id")
-    message_text = payload.get("message")
-    message_type = payload.get("type", "text")  # Default to "text"
-
-    if not user_id or not message_text:
-        raise HTTPException(status_code=400, detail="user_id and message are required.")
+    type = type.lower()
+    if type == "text":
+        if not message:
+            raise HTTPException(status_code=400, detail="For text messages, 'message' field must not be empty.")
+        message_text = message
+    elif type == "audio":
+        if audio is None:
+            raise HTTPException(status_code=400, detail="For audio messages, an audio file must be provided.")
+        # Read audio bytes.
+        audio_bytes = await audio.read()
+        # Use the dedicated voice-to-text model to extract text.
+        voice_client = GeminiClient()  # Reusing GeminiClient instance; can be separate if needed.
+        try:
+            response_vtt = voice_client.client.models.generate_content(
+                model=settings.VOICE_TO_TEXT_MODEL,
+                contents=[
+                    "Extract the text from this audio:",
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type=audio.content_type  # e.g., "audio/mp3"
+                    )
+                ]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Voice-to-text conversion failed: {e}")
+        extracted_text = response_vtt.text.strip()
+        if not extracted_text:
+            raise HTTPException(status_code=500, detail="No text extracted from the audio.")
+        message_text = extracted_text
+    else:
+        raise HTTPException(status_code=400, detail="Invalid type. Must be 'text' or 'audio'.")
 
     # Retrieve conversation from the database.
     conversation = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    # Determine the message index as the count of existing messages + 1.
+    # Determine the message index for the new user message.
     message_index = len(conversation.get("messages", [])) + 1
 
     # Get or create a chat session.
     chat_session = ChatSessionManager.get_session(user_id)
     if not chat_session:
         chat_session = ChatSessionManager.create_session(user_id, conversation_id)
-
     chat_session.increment_request_count()
     chat_session.update_last_message_time()
 
-    # Prepare the user's message record with message_index.
+    # Create the user's message record.
     user_message = {
         "role": "user",
         "content": message_text,
         "timestamp": datetime.utcnow(),
-        "type": message_type,
-        "audio_file_path": None,  # Not set here for audio messages.
+        "type": type,
+        "audio_file_path": None,  # For audio messages, this will be updated later.
         "message_index": message_index
     }
 
@@ -245,23 +276,40 @@ async def send_message(conversation_id: str, payload: dict):
         {"$push": {"messages": user_message}, "$set": {"last_message_time": datetime.utcnow()}}
     )
 
-    # Asynchronously send the message text to Gemini.
+    # If the message is audio, store the audio file and update the record.
+    if type == "audio":
+        base_dir = "audio_files"
+        dir_path = os.path.join(base_dir, user_id, conversation_id)
+        os.makedirs(dir_path, exist_ok=True)
+        ts_str = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        ext = os.path.splitext(audio.filename)[1] if audio.filename and os.path.splitext(audio.filename)[1] else ".wav"
+        filename = f"{ts_str}_{message_index}{ext}"
+        file_path = os.path.join(dir_path, filename)
+        with open(file_path, "wb") as f:
+            f.write(audio_bytes)
+        await db.conversations.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {"$set": {"messages.$[elem].audio_file_path": file_path}},
+            array_filters=[{"elem.message_index": message_index, "elem.type": "audio"}]
+        )
+
+    # Send the (extracted or provided) text to the chat model.
     gemini_client = GeminiClient()
-    response, prompt_tokens, response_tokens, total_tokens = await gemini_client.send_message(chat_session, message_text)
+    response_chat, prompt_tokens, response_tokens, total_tokens = await gemini_client.send_message(chat_session, message_text)
 
     print(f"Token Usage - Prompt: {prompt_tokens}, Response: {response_tokens}, Total: {total_tokens}")
 
     # Prepare the model's response message.
-    # Here, we assign its message_index as user_message_index + 1.
     model_message = {
         "role": "model",
-        "content": response.text,
+        "content": response_chat.text,
         "timestamp": datetime.utcnow(),
         "token_count": response_tokens,
         "type": "text",
         "audio_file_path": None,
         "message_index": message_index + 1,
-        "sent_message_index": message_index   # Extra field: the index of the user-sent message.
+        "sent_message_index": message_index,
+        "sent_message": message_text  # Extra field containing the extracted (or original) user text.
     }
 
     # Save the model's response into MongoDB and update token statistics.
