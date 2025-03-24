@@ -11,6 +11,7 @@ import time
 from fastapi.responses import FileResponse
 from app.config import settings
 from google.genai import types
+from app.utils.logger import logger
 
 
 router = APIRouter()
@@ -20,6 +21,7 @@ AUDIO_FILES_BASE_DIR = "audio_files"
 
 @router.post("/conversations", response_model=Conversation)
 async def create_conversation(conversation: Conversation):
+    print(f"conversation: {conversation}")
     # ✅ Check if the user already has an active session in RAM
     existing_session = ChatSessionManager.get_session(conversation.user_id)
     

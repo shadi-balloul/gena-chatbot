@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 from app.config import settings
 import PyPDF2  # Ensure PyPDF2 is in your requirements
+from app.utils.logger import logger
 
 CACHE_METADATA_FILE = "cache_metadata.json"
 
@@ -124,7 +125,7 @@ class GeminiClient:
                         "If the questions of the bank clients are not about the context and not about the bank products and services, Tell him that you cannot answer questions that are not related to BEMO bank"
                         "Let the client feel that he chats with a human and not a machine"
                         "In the end of each message write the following:"
-                        "مساعد بنك بيمو الرقمي"
+                        "المساعد الرقمي في بنك بيمو السعودي الفرنسي"
                         
                         
                         
@@ -173,12 +174,23 @@ class GeminiClient:
             raise ValueError("Chat session is not initialized properly.")
 
         def _send():
-            return chat_session.chat.send_message(message)
+            # Send the message and capture the response.
+            resp = chat_session.chat.send_message(message)
+            # Attempt to log the URL from the underlying request object.
+            try:
+                # This assumes the response has an attribute 'request' with a 'url' property.
+                req_url = resp.request.url
+                logger.info(f"Gemini SDK requested URL: {req_url}")
+            except Exception as e:
+                logger.debug(f"Could not retrieve request URL: {e}")
+            return resp
+            # return chat_session.chat.send_message(message)
 
         response = await asyncio.to_thread(_send)
         prompt_tokens = response.usage_metadata.prompt_token_count if hasattr(response.usage_metadata, "prompt_token_count") else 0
         response_tokens = response.usage_metadata.candidates_token_count if hasattr(response.usage_metadata, "candidates_token_count") else 0
         total_tokens = response.usage_metadata.total_token_count if hasattr(response.usage_metadata, "total_token_count") else prompt_tokens + response_tokens
+         
 
         print(f"Token Usage - Prompt: {prompt_tokens}, Response: {response_tokens}, Total: {total_tokens}")
         return response, prompt_tokens, response_tokens, total_tokens
