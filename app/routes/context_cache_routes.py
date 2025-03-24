@@ -5,6 +5,8 @@ from typing import List
 from app.models import ContextCacheInfo
 from app.services.gemini_client import GeminiClient
 from app.config import settings
+from app.utils.logger import logger
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -75,3 +77,42 @@ async def delete_all_caches():
     #    os.remove(CACHE_METADATA_FILE)
     
     return {"message": f"Deleted {deleted_count} cache object(s)."}
+
+class TestMessageRequest(BaseModel):
+    message: str
+
+@router.post("/test-gemini-urls")
+async def test_gemini_urls(request: TestMessageRequest):
+    """Test endpoint to check what URLs Gemini SDK is calling"""
+    try:
+        # Create a client and initialize
+        gemini_client = GeminiClient()
+        if not gemini_client.cache:
+            await gemini_client.initialize_cache()
+            
+        # Create a chat session
+        chat = gemini_client.create_chat()
+        if not chat:
+            raise HTTPException(status_code=500, detail="Failed to create chat session")
+            
+        # Send a test message and track URLs
+        logger.info("Sending test message to Gemini to track URLs")
+        response, _, _, _ = await chat.send_message(chat, request.message)
+        
+        # Read the last few lines from the log file
+        log_entries = []
+        try:
+            with open("logs/gemini_requests.log", "r") as log_file:
+                lines = log_file.readlines()
+                # Get the last 50 lines or all if less than 50
+                log_entries = lines[-50:] if len(lines) > 50 else lines
+        except Exception as e:
+            log_entries = [f"Error reading log file: {e}"]
+            
+        return {
+            "response_text": response.text,
+            "logged_urls": log_entries
+        }
+    except Exception as e:
+        logger.error(f"Error in test endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

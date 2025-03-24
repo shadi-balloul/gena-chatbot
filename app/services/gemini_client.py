@@ -9,8 +9,26 @@ from google.genai import types
 from app.config import settings
 import PyPDF2  # Ensure PyPDF2 is in your requirements
 from app.utils.logger import logger
+import http.client
+import logging
 
 CACHE_METADATA_FILE = "cache_metadata.json"
+
+def setup_gemini_request_logging():
+    """Set up detailed logging for HTTP requests made by the Gemini SDK"""
+    # Set debug level for http.client
+    http.client.HTTPConnection.debuglevel = 1
+    
+    # Configure logging for urllib3/requests if they're used by the SDK
+    requests_log = logging.getLogger("urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
+    
+    # Let the app know we've set up request logging
+    logger.info("Gemini request logging configured")
+
+# Call this function when the module is imported
+setup_gemini_request_logging()
 
 def extract_text_from_pdf(pdf_path: pathlib.Path) -> str:
     with pdf_path.open("rb") as f:
@@ -174,23 +192,92 @@ class GeminiClient:
             raise ValueError("Chat session is not initialized properly.")
 
         def _send():
-            # Send the message and capture the response.
-            resp = chat_session.chat.send_message(message)
-            # Attempt to log the URL from the underlying request object.
             try:
-                # This assumes the response has an attribute 'request' with a 'url' property.
-                req_url = resp.request.url
-                logger.info(f"Gemini SDK requested URL: {req_url}")
+                # Log that we're sending a message
+                logger.info(f"Sending message to Gemini API: {message[:50]}{'...' if len(message) > 50 else ''}")
+                start_time = time.time()
+                
+                # Send the message and capture the response.
+                resp = chat_session.chat.send_message(message)
+                
+                # Log timing information
+                end_time = time.time()
+                logger.info(f"Gemini API request completed in {end_time - start_time:.2f} seconds")
+                
+                # Try to extract URL information from the response object
+                try:
+                    # Attempt different approaches to access the underlying request
+                    if hasattr(resp, "_raw_response"):
+                        raw = resp._raw_response
+                        if hasattr(raw, "request"):
+                            req = raw.request
+                            logger.info(f"Gemini SDK requested URL: {req.url}")
+                            logger.info(f"Gemini SDK request method: {req.method}")
+                    elif hasattr(resp, "request"):
+                        logger.info(f"Gemini SDK requested URL: {resp.request.url}")
+                        logger.info(f"Gemini SDK request method: {resp.request.method}")
+                    else:
+                        # If we can't access the request directly, try to infer from the response
+                        for attr_name in dir(resp):
+                            if "url" in attr_name.lower() or "request" in attr_name.lower():
+                                try:
+                                    attr_value = getattr(resp, attr_name)
+                                    logger.info(f"Found potential request info - {attr_name}: {attr_value}")
+                                except:
+                                    pass
+                except Exception as e:
+                    logger.debug(f"Could not retrieve request URL: {e}")
+                
+                return resp
             except Exception as e:
-                logger.debug(f"Could not retrieve request URL: {e}")
-            return resp
-            # return chat_session.chat.send_message(message)
+                logger.error(f"Error sending message to Gemini: {e}")
+                raise
 
         response = await asyncio.to_thread(_send)
         prompt_tokens = response.usage_metadata.prompt_token_count if hasattr(response.usage_metadata, "prompt_token_count") else 0
         response_tokens = response.usage_metadata.candidates_token_count if hasattr(response.usage_metadata, "candidates_token_count") else 0
         total_tokens = response.usage_metadata.total_token_count if hasattr(response.usage_metadata, "total_token_count") else prompt_tokens + response_tokens
-         
-
+            
+        # Enhanced logging for token usage
+        logger.info(f"Token Usage - Prompt: {prompt_tokens}, Response: {response_tokens}, Total: {total_tokens}")
         print(f"Token Usage - Prompt: {prompt_tokens}, Response: {response_tokens}, Total: {total_tokens}")
         return response, prompt_tokens, response_tokens, total_tokens
+    
+def try_monkey_patch_requests():
+    """
+    Attempt to monkey patch the requests library to log URLs.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        import requests
+        from functools import wraps
+        
+        # Store original methods
+        original_send = requests.Session.send
+        
+        @wraps(original_send)
+        def logging_send(self, request, **kwargs):
+            # Log the request details
+            logger.info(f"Gemini SDK URL being requested: {request.url}")
+            logger.info(f"Gemini SDK request method: {request.method}")
+            logger.debug(f"Gemini SDK request headers: {dict(request.headers)}")
+            
+            # Call the original method
+            response = original_send(self, request, **kwargs)
+            
+            # Log response details
+            logger.info(f"Gemini SDK response status: {response.status_code}")
+            
+            return response
+            
+        # Apply the monkey patch
+        requests.Session.send = logging_send
+        
+        logger.info("Successfully monkey patched requests library for URL logging")
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to monkey patch requests library: {e}")
+        return False
+
+# Try to apply the monkey patch when the module is imported
+try_monkey_patch_requests()
