@@ -46,14 +46,3 @@ async def cleanup_chat_sessions():
 @app.get("/")
 def root():
     return {"message": "Welcome to BEMO Bank Chatbot API"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        ssl_keyfile="key.pem",
-        ssl_certfile="cert.pem"
-    )
-
