@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.middlewares.request_logging import RequestLoggingMiddleware
 
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 # Add this to your FastAPI app setup
 
 
