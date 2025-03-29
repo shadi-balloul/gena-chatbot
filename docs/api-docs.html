@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEMO Bank Chatbot API Documentation</title>
+    <style>
+        /* Basic Reset & Body Styles */
+        /* REMOVED scroll-padding-top from html */
+        html {
+                scroll-behavior: smooth; /* Still good for JS scrolling */
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            display: flex; /* Use flexbox for layout */
+        }
+
+        /* Navigation Styles */
+        nav {
+            width: 250px;
+            background-color: #343a40; /* Dark background */
+            color: #fff;
+            padding: 20px 0;
+            height: 100vh; /* Full height */
+            position: fixed; /* Fixed position */
+            top: 0;
+            left: 0;
+            overflow-y: auto; /* Scrollable if content overflows */
+            flex-shrink: 0; /* Prevent nav from shrinking */
+            transition: transform 0.3s ease; /* For potential future toggle */
+            z-index: 1000; /* Ensure nav is on top */
+        }
+
+        nav h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 0 15px;
+            font-size: 1.4em;
+            color: #f8f9fa;
+        }
+
+        nav ul {
+            list-style: none;
+        }
+
+        nav ul li a {
+            display: block;
+            color: #adb5bd; /* Lighter text */
+            text-decoration: none;
+            padding: 10px 20px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            font-size: 0.95em;
+        }
+
+        nav ul li a:hover,
+        nav ul li a.active { /* Active class can be added by JS */
+            background-color: #495057; /* Slightly lighter dark */
+            color: #fff;
+        }
+
+        /* Main Content Styles */
+        main {
+            flex-grow: 1; /* Allow main content to grow */
+            padding: 30px;
+            margin-left: 250px; /* Offset by nav width */
+            background-color: #fff;
+            min-height: 100vh;
+        }
+
+        /* Added style for target sections to help JS offset calculation */
+        section[id] {
+             /* scroll-margin-top: 20px; /* Alternative CSS-only approach (might work) */
+             /* No specific style needed if JS is used */
+        }
+
+
+        h1, h2, h3, h4 {
+            color: #212529; /* Darker headings */
+            margin-bottom: 15px;
+            margin-top: 25px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+        h1 { font-size: 2.2em; margin-top: 0; border-bottom: 2px solid #007bff; }
+        h2 { font-size: 1.8em; }
+        h3 { font-size: 1.5em; border-bottom-style: dashed; }
+        h4 { font-size: 1.2em; border-bottom: none; margin-bottom: 10px; color: #495057; }
+
+
+        p {
+            margin-bottom: 15px;
+            color: #495057; /* Slightly lighter paragraph text */
+        }
+
+        code {
+            background-color: #e9ecef;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+            word-wrap: break-word;
+        }
+
+        pre {
+            background-color: #f1f3f5; /* Lighter background for code blocks */
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto; /* Horizontal scroll for long lines */
+            margin-bottom: 20px;
+            white-space: pre-wrap; /* Allow wrapping within pre */
+            word-wrap: break-word; /* Break long words/strings */
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        pre code {
+            background-color: transparent; /* Code inside pre doesn't need background */
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit; /* Inherit font size from pre */
+            white-space: inherit;
+            word-wrap: inherit;
+        }
+
+        ul {
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+        ul li {
+            margin-bottom: 8px;
+        }
+
+        strong {
+            font-weight: 600;
+        }
+
+        .endpoint-method {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-right: 10px;
+            text-transform: uppercase;
+        }
+        .get { background-color: #28a745; } /* Green */
+        .post { background-color: #007bff; } /* Blue */
+        .put { background-color: #ffc107; color: #333;} /* Yellow */
+        .delete { background-color: #dc3545; } /* Red */
+
+        .status-code {
+             display: inline-block;
+             font-weight: bold;
+             margin-right: 5px;
+             min-width: 40px;
+        }
+        .status-200 { color: #28a745; } /* Green */
+        .status-400, .status-403, .status-404, .status-422, .status-429 { color: #ffc107; } /* Yellow/Orange */
+        .status-500 { color: #dc3545; } /* Red */
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column; /* Stack nav and main vertically */
+            }
+
+            nav {
+                width: 100%; /* Full width */
+                height: auto; /* Auto height */
+                position: static; /* Remove fixed positioning */
+                margin-bottom: 0;
+                border-bottom: 2px solid #495057;
+                z-index: auto; /* Reset z-index */
+            }
+
+            nav h2 {
+                 font-size: 1.2em;
+                 margin-bottom: 15px;
+                 text-align: left;
+            }
+
+             nav ul li a {
+                 padding: 8px 15px;
+                 font-size: 0.9em;
+            }
+
+            main {
+                margin-left: 0; /* Remove left margin */
+                padding: 20px;
+            }
+
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.5em; }
+            h3 { font-size: 1.3em; }
+            h4 { font-size: 1.1em; }
+
+            /* Responsive adjustment for scroll offset if needed */
+             /* html { scroll-padding-top: 10px; } */ /* No longer needed with JS */
+        }
+
+
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>BEMO Chatbot API</h2>
+        <ul>
+            <!-- Ensure hrefs match section IDs -->
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#base-url">Base URL</a></li>
+            <li><a href="#data-models">Data Models</a></li>
+            <li><a href="#api-endpoints">API Endpoints</a></li>
+            <li><a href="#health-check">&nbsp;&nbsp;&nbsp;Health Check</a></li>
+            <li><a href="#create-conversation">&nbsp;&nbsp;&nbsp;Create Conversation</a></li>
+            <li><a href="#send-message">&nbsp;&nbsp;&nbsp;Send Message</a></li>
+            <li><a href="#get-user-conversations">&nbsp;&nbsp;&nbsp;Get User's Conversations</a></li>
+            <li><a href="#get-conversation-history">&nbsp;&nbsp;&nbsp;Get Conversation History</a></li>
+            <li><a href="#get-audio-file">&nbsp;&nbsp;&nbsp;Get Audio File</a></li>
+            <li><a href="#get-token-stats">&nbsp;&nbsp;&nbsp;Get Token Stats</a></li>
+            <li><a href="#business-logic">Business Logic & Scenarios</a></li>
+            <li><a href="#frontend-summary">Frontend Summary</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <!-- Add id attributes to sections that correspond to nav hrefs -->
+        <section id="overview">
+            <h1>BEMO Bank Chatbot API Documentation</h1>
+            <h2>1. Overview</h2>
+            <!-- ... content ... -->
+            <p>This document provides the API specification for the BEMO Bank Chatbot backend. The chatbot assists users by answering questions about BEMO Bank's products, services, and FAQs based on information provided to the AI model (Google Gemini).</p>
+
+            <h4>Core Technologies:</h4>
+            <ul>
+                <li><strong>Backend:</strong> FastAPI (Python Web Framework)</li>
+                <li><strong>AI Model:</strong> Google Gemini (via Gemini Python SDK)</li>
+                <li><strong>Database:</strong> MongoDB (for storing conversations and messages)</li>
+                <li><strong>Context:</strong> Gemini Context Caching (uploads bank information once for efficiency)</li>
+                <li><strong>Sessions:</strong> In-memory stateful chat sessions per user with limits.</li>
+            </ul>
+
+            <h4>Key Concepts:</h4>
+            <ul>
+                <li><strong>Context Caching:</strong> Bank information (from an MD or PDF file) is loaded into Gemini's cache when the server starts. This context is used for all user interactions without needing re-uploads per user.</li>
+                <li><strong>Chat Sessions:</strong>
+                    <ul>
+                        <li>When a user starts interacting, a chat session is created <em>in memory</em> on the backend.</li>
+                        <li>Each user can only have <strong>one active chat session</strong> at a time.</li>
+                        <li>Sessions are stateful and managed by the <code>ChatSessionManager</code>.</li>
+                        <li>Sessions expire based on:
+                            <ul>
+                                <li>Reaching the maximum daily request limit (<code>MAX_REQUESTS_PER_DAY</code>).</li>
+                                <li>Inactivity exceeding a configured duration after the last message (<code>MAX_DURATION_AFTER_LAST_MESSAGE</code>).</li>
+                            </ul>
+                        </li>
+                        <li>Session expiry and cleanup are handled automatically by the backend.</li>
+                    </ul>
+                </li>
+                <li><strong>Conversations:</strong>
+                    <ul>
+                        <li>Each distinct chat interaction initiated by a user is stored as a <code>Conversation</code> document in MongoDB.</li>
+                        <li>A conversation contains metadata (user ID, timestamps) and a list of <code>Messages</code>.</li>
+                    </ul>
+                </li>
+                <li><strong>Messages:</strong>
+                    <ul>
+                        <li>Each user utterance and corresponding bot response is stored as a <code>Message</code> object within a <code>Conversation</code>.</li>
+                        <li>Messages can be of type <code>text</code> or <code>audio</code>.</li>
+                        <li><strong>Audio Handling:</strong> The frontend is responsible for Speech-to-Text (STT). The backend receives the transcribed text <em>and</em> the raw audio file (for storage only) when the type is "audio". The text transcription is used for the interaction with the Gemini model.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+
+        <section id="base-url">
+            <h2>2. Base URL</h2>
+             <!-- ... content ... -->
+            <ul>
+                <li><strong>Development:</strong> <code>https://127.0.0.1:8100/api</code></li>
+                <li><strong>Production:</strong> <code>https://your-production-api-domain.com/api</code> (Replace with actual domain)</li>
+            </ul>
+            <p><em>(Note: Examples below use the development base URL)</em></p>
+        </section>
+
+        <section id="data-models">
+            <h2>3. Data Models</h2>
+             <h3>Message</h3>
+             <!-- ... content ... -->
+             <p>Represents a single message within a conversation.</p>
+            <pre><code>{
+    "role": "string (either 'user' or 'model')",
+    "content": "string (The text content of the message)",
+    "timestamp": "string (ISO 8601 format UTC timestamp, e.g., '2025-03-27T18:58:00.023000')",
+    "token_count": "integer | null (Number of tokens used by the model for this response, null for user messages)",
+    "type": "string (either 'text' or 'audio')",
+    "audio_file_path": "string | null (Filename of the saved audio, relative to user/conversation folder, e.g., '20250327193359_1.wav'. Null if type is 'text' or saving failed)",
+    "message_index": "integer (Sequential index of the message within the conversation, starting from 1)",
+    "sent_message_index": "integer | null (For model messages, this indicates the message_index of the user message it's responding to. Null for user messages)"
+}</code></pre>
+             <h3>Conversation</h3>
+              <!-- ... content ... -->
+             <p>Represents a complete chat interaction session for a user.</p>
+            <pre><code>{
+    "id": "string (Unique identifier for the conversation, MongoDB ObjectId as string, e.g., '67e59faeb325d44db238a7b1')", // Corresponds to '_id' in MongoDB
+    "user_id": "string (Identifier for the user, e.g., 'user123')",
+    "messages": [ // Array of Message objects (see above)
+        // ... messages ...
+    ],
+    "start_time": "string (ISO 8601 format UTC timestamp when the conversation was created)",
+    "last_message_time": "string (ISO 8601 format UTC timestamp of the last message added)",
+    "total_prompt_tokens": "integer (Total tokens sent *to* the model in this conversation, optional, defaults to 0)",
+    "total_response_tokens": "integer (Total tokens received *from* the model in this conversation, optional, defaults to 0)",
+    "total_token_count": "integer (Sum of prompt and response tokens, optional, defaults to 0)"
+}</code></pre>
+        </section>
+
+        <section id="api-endpoints">
+            <h2>4. API Endpoints</h2>
+
+            <!-- Make sure each API section has the corresponding ID -->
+            <section id="health-check">
+                <h3><span class="endpoint-method get">GET</span> /</h3>
+                <!-- ... content ... -->
+                 <h4>Description:</h4>
+                <p>Simple endpoint to check if the API server is running. Note: This is relative to the server root, not <code>/api</code>.</p>
+                <h4>Request:</h4>
+                <p>None</p>
+                <h4>Response:</h4>
+                <ul>
+                   <li><strong class="status-code status-200">200 OK</strong>: <code>"The health check is successful!"</code> (Plain text or JSON string)</li>
+                   <li><strong class="status-code status-500">5xx Server Error</strong>: If the server has issues.</li>
+                </ul>
+            </section>
+
+            <section id="create-conversation">
+                <h3><span class="endpoint-method post">POST</span> /api/conversations</h3>
+                 <!-- ... content ... -->
+                <h4>Description:</h4>
+                <p>Handles the initiation of a chat. Checks if the specified <code>user_id</code> has an active session in the backend's memory:</p>
+                <ul>
+                    <li><strong>Case 1: Active Session Exists:</strong> Returns the existing <code>Conversation</code> data associated with that session from MongoDB, including any previous messages within that <em>active</em> session.</li>
+                    <li><strong>Case 2: No Active Session:</strong> Creates a <em>new</em> <code>Conversation</code> document in MongoDB, starts a <em>new</em> chat session in memory, and returns the newly created <code>Conversation</code> object (with an empty <code>messages</code> array).</li>
+                </ul>
+                 <h4>Request Body (<code>application/json</code>):</h4>
+                <pre><code>{
+    "user_id": "string (Required) - The identifier for the user starting the chat."
+}</code></pre>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: Successfully created or retrieved conversation. Body contains the <code>Conversation</code> object.</p>
+                <h5>Example (Case 1: Existing Session Found)</h5>
+                <pre><code>{
+    "id": "67e59faeb325d44db238a7b1",
+    "user_id": "user123",
+    "messages": [
+        {
+            "role": "user",
+            "content": "أريد أن أحصل على قرض للموظفين",
+            "timestamp": "2025-03-27T18:58:00.023000",
+            "token_count": null,
+            "type": "audio",
+            "audio_file_path": "20250327193359_1.wav",
+            "message_index": 1,
+            "sent_message_index": null
+        },
+        {
+            "role": "model",
+            "content": "يسرّني مساعدتك. يقدم بنك بيمو السعودي الفرنسي نوعين من القروض للموظفين...",
+            "timestamp": "2025-03-27T18:58:03.784000",
+            "token_count": 266,
+            "type": "text",
+            "audio_file_path": null,
+            "message_index": 2,
+            "sent_message_index": 1
+        }
+    ],
+    "start_time": "2025-03-27T18:57:50.198000",
+    "last_message_time": "2025-03-27T18:58:03.784000",
+    "total_prompt_tokens": 10,
+    "total_response_tokens": 266,
+    "total_token_count": 276
+}</code></pre>
+                 <h5>Example (Case 2: New Session Created)</h5>
+                <pre><code>{
+    "id": "67e5b37add43a99439b4dbb6",
+    "user_id": "user123",
+    "messages": [],
+    "start_time": "2025-03-27T20:21:46.123456",
+    "last_message_time": "2025-03-27T20:21:46.123456",
+    "total_prompt_tokens": 0,
+    "total_response_tokens": 0,
+    "total_token_count": 0
+}</code></pre>
+                 <h4>Error Status Codes:</h4>
+                <ul>
+                    <li><strong class="status-code status-422">422 Unprocessable Entity</strong>: Missing <code>user_id</code> or invalid types.</li>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: Database or session creation failure.</li>
+                </ul>
+            </section>
+
+            <section id="send-message">
+                <h3><span class="endpoint-method post">POST</span> /api/conversations/{conversation_id}/messages</h3>
+                 <!-- ... content ... -->
+                 <h4>Description:</h4>
+                 <p>Sends a user's message to the active chat session. Saves the user message (and audio file if applicable), sends the text content to the Gemini model, saves the model's response, and returns the model's response.</p>
+                 <h4>Path Parameters:</h4>
+                <ul><li><code>conversation_id</code> (string, Required): The ID of the conversation.</li></ul>
+                 <h4>Request Body (<code>multipart/form-data</code>):</h4>
+                <ul>
+                    <li><code>user_id</code> (string, Required): The user identifier.</li>
+                    <li><code>type</code> (string, Required): Either `"text"` or `"audio"`.</li>
+                    <li><code>message</code> (string, Required): The text content (or frontend STT transcription for audio).</li>
+                    <li><code>audio</code> (File, Optional): The raw audio file. **Required** if <code>type="audio"</code>.</li>
+                </ul>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: Message processed. Body contains the model's <code>Message</code> object.</p>
+                <h5>Example Response (following an audio message)</h5>
+                <pre><code>{
+    "role": "model",
+    "content": "يقدم بنك بيمو السعودي الفرنسي العديد من القروض، منها:\n\n* **القرض الشخصي:** ...\n\nمساعد بنك بيمو الرقمي\n",
+    "timestamp": "2025-03-27T20:22:40.672689",
+    "token_count": 309,
+    "type": "text",
+    "audio_file_path": null,
+    "message_index": 2,
+    "sent_message_index": 1
+}</code></pre>
+                 <h4>Error Status Codes:</h4>
+                 <ul>
+                    <li><strong class="status-code status-400">400 Bad Request</strong>: Missing/invalid fields, missing audio file when required.</li>
+                    <li><strong class="status-code status-403">403 Forbidden</strong>: User ID mismatch.</li>
+                    <li><strong class="status-code status-404">404 Not Found</strong>: Conversation ID not found.</li>
+                    <li><strong class="status-code status-429">429 Too Many Requests</strong>: Daily request limit reached.</li>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: File save error, Gemini communication error, DB error, session error.</li>
+                 </ul>
+            </section>
+
+            <section id="get-user-conversations">
+                <h3><span class="endpoint-method get">GET</span> /api/conversations/user/{user_id}</h3>
+                 <!-- ... content ... -->
+                 <h4>Description:</h4>
+                 <p>Retrieves a list of all conversation summaries recorded for the specified user, sorted newest first.</p>
+                 <h4>Path Parameters:</h4>
+                 <ul><li><code>user_id</code> (string, Required): The user identifier.</li></ul>
+                 <h4>Request:</h4>
+                 <p>None</p>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: Returns a JSON array of <code>Conversation</code> objects. Empty array if none found.</p>
+                <h5>Example Response:</h5>
+                 <pre><code>[
+    {
+        "id": "67e5b37add43a99439b4dbb6",
+        "user_id": "user123",
+        "messages": [ /* ... messages ... */ ],
+        "start_time": "2025-03-27T20:21:46.123456",
+        "last_message_time": "2025-03-27T20:22:40.672689",
+        "total_prompt_tokens": 20,
+        "total_response_tokens": 309,
+        "total_token_count": 329
+    },
+    {
+        "id": "67e59faeb325d44db238a7b1",
+        "user_id": "user123",
+        "messages": [ /* ... messages ... */ ],
+        "start_time": "2025-03-27T18:57:50.198000",
+        "last_message_time": "2025-03-27T18:59:12.701000",
+        "total_prompt_tokens": 50,
+        "total_response_tokens": 513,
+        "total_token_count": 563
+    }
+]</code></pre>
+                 <h4>Error Status Codes:</h4>
+                <ul>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: Database query error.</li>
+                </ul>
+            </section>
+
+            <section id="get-conversation-history">
+                <h3><span class="endpoint-method get">GET</span> /api/conversations/{conversation_id}/history</h3>
+                 <!-- ... content ... -->
+                 <h4>Description:</h4>
+                 <p>Retrieves the full list of <code>Message</code> objects for a specific conversation.</p>
+                 <h4>Path Parameters:</h4>
+                <ul><li><code>conversation_id</code> (string, Required): The ID of the conversation.</li></ul>
+                 <h4>Query Parameters:</h4>
+                <ul><li><code>user_id</code> (string, Required): The user identifier for ownership verification.</li></ul>
+                <h4>Request:</h4>
+                 <p>None</p>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: Returns a JSON array of <code>Message</code> objects.</p>
+                 <h5>Example Response:</h5>
+                <pre><code>[
+    {
+        "role": "user",
+        "content": "ما هي القروض في البنك",
+        "timestamp": "2025-03-27T20:22:35.123456",
+        "token_count": null,
+        "type": "audio",
+        "audio_file_path": "20250327202235_1.wav",
+        "message_index": 1,
+        "sent_message_index": null
+    },
+    {
+        "role": "model",
+        "content": "يقدم بنك بيمو السعودي الفرنسي العديد من القروض...",
+        "timestamp": "2025-03-27T20:22:40.672689",
+        "token_count": 309,
+        "type": "text",
+        "audio_file_path": null,
+        "message_index": 2,
+        "sent_message_index": 1
+    }
+]</code></pre>
+                 <h4>Error Status Codes:</h4>
+                <ul>
+                    <li><strong class="status-code status-400">400 Bad Request</strong>: Invalid <code>conversation_id</code> format.</li>
+                    <li><strong class="status-code status-403">403 Forbidden</strong>: User ID mismatch.</li>
+                    <li><strong class="status-code status-404">404 Not Found</strong>: Conversation ID not found.</li>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: Database error or message validation error.</li>
+                </ul>
+            </section>
+
+            <section id="get-audio-file">
+                <h3><span class="endpoint-method get">GET</span> /api/conversations/{conversation_id}/audio/{filename}</h3>
+                 <!-- ... content ... -->
+                 <h4>Description:</h4>
+                 <p>Downloads the audio file associated with a specific message.</p>
+                 <h4>Path Parameters:</h4>
+                 <ul>
+                     <li><code>conversation_id</code> (string, Required): Conversation ID.</li>
+                     <li><code>filename</code> (string, Required): The filename from the message's <code>audio_file_path</code> field.</li>
+                 </ul>
+                <h4>Query Parameters:</h4>
+                <ul><li><code>user_id</code> (string, Required): The user identifier (used for path construction).</li></ul>
+                <h4>Request:</h4>
+                 <p>None</p>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: The raw audio file data. Check <code>Content-Type</code> header (e.g., <code>audio/wav</code>).</p>
+                <h4>Error Status Codes:</h4>
+                 <ul>
+                    <li><strong class="status-code status-400">400 Bad Request</strong>: Invalid filename format (path traversal attempted).</li>
+                    <li><strong class="status-code status-404">404 Not Found</strong>: Audio file not found at the expected server path.</li>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: Error reading file from disk.</li>
+                 </ul>
+            </section>
+
+            <section id="get-token-stats">
+                <h3><span class="endpoint-method get">GET</span> /api/conversations/{conversation_id}/token-stats</h3>
+                <!-- ... content ... -->
+                <h4>Description:</h4>
+                <p>Retrieves token usage statistics for a specific conversation.</p>
+                 <h4>Path Parameters:</h4>
+                <ul><li><code>conversation_id</code> (string, Required): The ID of the conversation.</li></ul>
+                 <h4>Query Parameters:</h4>
+                <ul><li><code>user_id</code> (string, Required): The user identifier for verification.</li></ul>
+                <h4>Request:</h4>
+                 <p>None</p>
+                <h4>Response:</h4>
+                 <p><strong class="status-code status-200">200 OK</strong>: Returns a JSON object with token counts.</p>
+                <h5>Example Response:</h5>
+                 <pre><code>{
+    "conversation_id": "67e5b37add43a99439b4dbb6",
+    "user_id": "user123",
+    "total_user_tokens": 20,
+    "total_model_tokens": 309,
+    "total_tokens": 329,
+    "message_count": 2
+}</code></pre>
+                 <h4>Error Status Codes:</h4>
+                <ul>
+                    <li><strong class="status-code status-400">400 Bad Request</strong>: Invalid <code>conversation_id</code> format.</li>
+                    <li><strong class="status-code status-403">403 Forbidden</strong>: User ID mismatch.</li>
+                    <li><strong class="status-code status-404">404 Not Found</strong>: Conversation ID not found.</li>
+                    <li><strong class="status-code status-500">500 Internal Server Error</strong>: Database query error.</li>
+                </ul>
+            </section>
+        </section>
+
+        <section id="business-logic">
+            <h2>5. Business Logic & Scenarios</h2>
+             <!-- ... content ... -->
+             <h3>5.1 Starting a Chat</h3>
+            <ol>
+                <li>User opens chat interface (first time or after session expiry).</li>
+                <li>Frontend calls <code>POST /api/conversations</code> with <code>user_id</code>.</li>
+                <li><strong>No active session:</strong> Backend creates new conversation/session, returns new <code>Conversation</code> (empty messages). Frontend stores the <code>conversation_id</code>.</li>
+                <li><strong>Active session exists:</strong> Backend returns existing <code>Conversation</code> data (incl. messages). Frontend uses this data and the <code>conversation_id</code>.</li>
+            </ol>
+
+            <h3>5.2 Sending a Text Message</h3>
+             <ol>
+                 <li>User types text, hits send.</li>
+                 <li>Frontend sends <code>multipart/form-data</code> to <code>POST /api/conversations/{conversation_id}/messages</code> with <code>user_id</code>, <code>type="text"</code>, <code>message="User's text"</code>.</li>
+                 <li>Backend saves user message, calls Gemini, saves model response.</li>
+                 <li>Backend returns model's <code>Message</code> object (200 OK).</li>
+                 <li>Frontend displays response.</li>
+            </ol>
+
+             <h3>5.3 Sending an Audio Message</h3>
+             <ol>
+                 <li>User records audio.</li>
+                 <li><strong>Frontend performs STT</strong> to get transcription.</li>
+                 <li>Frontend sends <code>multipart/form-data</code> to <code>POST /api/conversations/{conversation_id}/messages</code> with <code>user_id</code>, <code>type="audio"</code>, <code>message="Transcribed text"</code>, and the raw <code>audio</code> file.</li>
+                 <li>Backend saves user message (with type, content, null path initially).</li>
+                 <li>Backend saves audio file to disk.</li>
+                 <li>Backend updates user message in DB with the saved <code>audio_file_path</code> (filename).</li>
+                 <li>Backend sends <strong>transcribed text</strong> to Gemini.</li>
+                 <li>Backend saves model's text response.</li>
+                 <li>Backend returns model's <code>Message</code> object (200 OK).</li>
+                 <li>Frontend displays response.</li>
+             </ol>
+
+             <h3>5.4 Loading Chat History</h3>
+             <ol>
+                 <li>When loading chat UI for an existing conversation:</li>
+                 <li>Use messages returned by <code>POST /conversations</code> if it was an active session.</li>
+                 <li>Alternatively, call <code>GET /api/conversations/{conversation_id}/history?user_id={user_id}</code> for any conversation ID.</li>
+                 <li>Iterate through the message list.</li>
+                 <li>For audio messages, use <code>audio_file_path</code> to fetch audio via <code>GET /api/conversations/{conversation_id}/audio/{filename}?user_id={user_id}</code> for playback.</li>
+             </ol>
+
+            <h3>5.5 Session Expiry</h3>
+             <p>Frontend doesn't manage expiry directly. If a session expires, the next call to <code>POST /messages</code> might implicitly start a new session context via the backend logic. Using <code>POST /conversations</code> first is the most reliable way to ensure an active session before sending messages.</p>
+        </section>
+
+        <section id="frontend-summary">
+            <h2>6. Frontend Considerations Summary</h2>
+             <!-- ... content ... -->
+             <ul>
+                <li>Use <code>POST /api/conversations</code> at the start to get/create a conversation and obtain the <code>conversation_id</code>.</li>
+                <li>Always use <code>multipart/form-data</code> for <code>POST /api/conversations/{conversation_id}/messages</code>.</li>
+                <li><strong>Perform Speech-to-Text (STT) locally</strong> for audio input.</li>
+                <li>Always include <code>user_id</code>, <code>type</code>, and <code>message</code> (transcription for audio) in send message requests.</li>
+                <li>Include the <code>audio</code> file field *only* when <code>type="audio"</code>.</li>
+                <li>Use the <code>id</code> field from <code>Conversation</code> objects as the <code>{conversation_id}</code> path parameter.</li>
+                <li>Use <code>GET /history</code> to load message history for conversations.</li>
+                <li>Use <code>GET /audio/{filename}</code> to retrieve audio files using the <code>audio_file_path</code> from messages.</li>
+                <li>Handle API error responses gracefully, especially <code>429 Too Many Requests</code>.</li>
+            </ul>
+        </section>
+
+    </main>
+
+    <!-- JavaScript for smooth scrolling with offset -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.querySelectorAll('nav ul li a');
+            const topOffset = 20; // Same value as desired scroll-padding-top or visual offset
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(event) {
+                    const href = this.getAttribute('href');
+
+                    // Check if it's an internal anchor link
+                    if (href && href.startsWith('#')) {
+                        event.preventDefault(); // Prevent the default jump
+
+                        const targetId = href.substring(1);
+                        const targetElement = document.getElementById(targetId);
+
+                        if (targetElement) {
+                            // Calculate position: element's top relative to viewport + current scrollY
+                            const elementPosition = targetElement.getBoundingClientRect().top;
+                            const offsetPosition = elementPosition + window.pageYOffset - topOffset;
+
+                            window.scrollTo({
+                                top: offsetPosition,
+                                behavior: 'smooth'
+                            });
+
+                            // Optional: Add active class to clicked link
+                            navLinks.forEach(nav => nav.classList.remove('active'));
+                            this.classList.add('active');
+                        } else {
+                             console.warn('Scroll target not found:', targetId);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

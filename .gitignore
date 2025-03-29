@@ -12,3 +12,6 @@ data/conversations/ # Consider ignoring if pickle files are user-specific/tempor
 audio_files/*
 audio_files*
 *.pem
+.env
+cache_metadata.json
+
